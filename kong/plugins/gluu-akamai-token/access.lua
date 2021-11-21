@@ -70,9 +70,24 @@ function _M.execute(conf)
     kong.response.exit(400, {["err"] = err })
   end
 
-  local cookie_tail = ";version=1;path=/;secure;Max-Age=" .. (parsed_state['ttl'] - 5)
+  local cookie_tail = ";version=1"
+  if (parsed_state['path']) and (parsed_state['path'] ~= '') then
+    cookie_tail = cookie_tail .. ";path=" .. parsed_state['path']
+  else
+    cookie_tail = cookie_tail .. ";path=/"
+  end
+  if parsed_state['secure'] then
+    cookie_tail = cookie_tail .. ";secure"
+  end
+  cookie_tail = cookie_tail .. ";Max-Age=" .. (parsed_state['ttl'] - 1)
   if parsed_state['http_only'] then
     cookie_tail = cookie_tail .. ";httponly"
+  end
+  if (parsed_state['domain']) and (parsed_state['domain'] ~= '') then
+    cookie_tail = cookie_tail .. ";Domain=" .. parsed_state['domain']
+  end
+  if (parsed_state['same_site']) and (parsed_state['same_site'] ~= '') then
+    cookie_tail = cookie_tail .. ";SameSite=" .. parsed_state['same_site']
   end
 
   return parsed_state['redirect'], (parsed_state['cookie_name'] .. '=' .. cookie .. cookie_tail)
