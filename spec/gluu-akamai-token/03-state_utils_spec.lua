@@ -31,6 +31,28 @@ describe("[" .. PLUGIN_NAME .. "] state_utils", function()
       assert.equal(state_version, "v1")
     end)
 
+    it("validates state v2 full", function()
+      local state = 'eyJkIjoidjI7ZWRnZXRva2VuOzg2NDAwO3RydWU7dHJ1ZTtha2FtYWlfdG9rZW47LmJhci5jb207LztTdHJpY3Q7aHR0cDovL2Zvby5iYXIuY29tL2luZGV4Lmh0bWwiLCJ2IjoidjIiLCJlIjoiVUhaZTFEOU91S0hQbHpmQ1BxOVF6aVArSXduWkdLTXd0dEFod0hkdkxRZz0ifQ=='
+      local state_string, err, state_version = state_utils:validate_and_decode_state(state, key, alg)
+
+      assert.is_nil(err)
+      assert.is_truthy(state_string)
+      assert.is_truthy(state_version)
+      assert.equal(state_string, "v2;edgetoken;86400;true;true;akamai_token;.bar.com;/;Strict;http://foo.bar.com/index.html")
+      assert.equal(state_version, "v2")
+    end)
+
+    it("validates state v2 missing fields", function()
+      local state = 'eyJkIjoidjI7ZWRnZXRva2VuOzg2NDAwO3RydWU7dHJ1ZTtha2FtYWlfdG9rZW47Ozs7aHR0cDovL2Zvby5iYXIuY29tL2luZGV4Lmh0bWwiLCJ2IjoidjIiLCJlIjoiWkNqNmJjTTRuUHM2Y0szOWRWUWx5TXRXdVJwcHpoU0RvS1lLQndHQ2YzZz0ifQ=='
+      local state_string, err, state_version = state_utils:validate_and_decode_state(state, key, alg)
+
+      assert.is_nil(err)
+      assert.is_truthy(state_string)
+      assert.is_truthy(state_version)
+      assert.equal(state_string, "v2;edgetoken;86400;true;true;akamai_token;;;;http://foo.bar.com/index.html")
+      assert.equal(state_version, "v2")
+    end)
+
     it("validates wrong signature", function()
       local state = 'eyJkIjoidjE7ZWRnZXRva2VuOzg2NDAwO3RydWU7dGVzdDEuY29tO2h0dHA6Ly90ZXN0MS5jb20vaW5kZXguaHRtbCIsInYiOiJ2MSIsImUiOiJ3cm9uZyBzaWduYXR1cmUgaGVyZSJ9'
       local state_string, err, state_version = state_utils:validate_and_decode_state(state, key, alg)
@@ -43,7 +65,7 @@ describe("[" .. PLUGIN_NAME .. "] state_utils", function()
   end)
 
   describe("parse_state", function()
-    it("truthy", function()
+    it("truthy v1", function()
       local state_version = "v1"
       local state_string = "v1;edgetoken;86400;true;test1.com;http://test1.com/index.html"
       local state_tbl, err = state_utils:parse_state(state_version, state_string)
@@ -57,11 +79,47 @@ describe("[" .. PLUGIN_NAME .. "] state_utils", function()
       assert.equal(state_tbl["redirect"]   , "http://test1.com/index.html")
     end)
 
-    it("parser version not implemented", function()
+    it("truthy v2 - full", function()
       local state_version = "v2"
+      local state_string = "v2;edgetoken;86400;true;true;akamai_token;.bar.com;/;Strict;http://foo.bar.com/index.html"
+      local state_tbl, err = state_utils:parse_state(state_version, state_string)
+
+      assert.is_nil(err)
+      assert.is_truthy(state_tbl)
+      assert.equal(state_tbl["cookie_name"], "edgetoken")
+      assert.equal(state_tbl["ttl"]        , 86400)
+      assert.equal(state_tbl["http_only"]  , true)
+      assert.equal(state_tbl["secure"]     , true)
+      assert.equal(state_tbl["issuer"]     , "akamai_token")
+      assert.equal(state_tbl["domain"]     , ".bar.com")
+      assert.equal(state_tbl["path"]       , "/")
+      assert.equal(state_tbl["same_site"]  , "Strict")
+      assert.equal(state_tbl["redirect"]   , "http://foo.bar.com/index.html")
+    end)
+
+    it("truthy v2 - missing fields", function()
+      local state_version = "v2"
+      local state_string = "v2;edgetoken;86400;true;true;akamai_token;;;;http://foo.bar.com/index.html"
+      local state_tbl, err = state_utils:parse_state(state_version, state_string)
+
+      assert.is_nil(err)
+      assert.is_truthy(state_tbl)
+      assert.equal(state_tbl["cookie_name"], "edgetoken")
+      assert.equal(state_tbl["ttl"]        , 86400)
+      assert.equal(state_tbl["http_only"]  , true)
+      assert.equal(state_tbl["secure"]     , true)
+      assert.equal(state_tbl["issuer"]     , "akamai_token")
+      assert.equal(state_tbl["domain"]     , '')
+      assert.equal(state_tbl["path"]       , '')
+      assert.equal(state_tbl["same_site"]  , '')
+      assert.equal(state_tbl["redirect"]   , "http://foo.bar.com/index.html")
+    end)
+
+    it("parser version not implemented", function()
+      local state_version = "v3"
       local state_string = "v1;edgetoken;86400;true;test1.com;http://test1.com/index.html"
       local state_tbl, err = state_utils:parse_state(state_version, state_string)
-      
+
       assert.is_nil(state_tbl)
       assert.is_truthy(err)
       assert.equal(err, "Parser for State version " .. state_version .. " not implemented yet.")
@@ -71,7 +129,7 @@ describe("[" .. PLUGIN_NAME .. "] state_utils", function()
       local state_version = "v1"
       local state_string = "v2;edgetoken;86400;true;test1.com;http://test1.com/index.html"
       local state_tbl, err = state_utils:parse_state(state_version, state_string)
-      
+
       assert.is_nil(state_tbl)
       assert.is_truthy(err)
       assert.equal(err, "State version does not match state at state string.")

@@ -2,7 +2,7 @@ local helpers = require "spec.helpers"
 
 local PLUGIN_NAME = "gluu-akamai-token"
 
-for _, strategy in helpers.each_strategy() do
+for _, strategy in ipairs({ "off" }) do
   describe(PLUGIN_NAME .. ": (access) [#" .. strategy .. "]", function()
     local client
 
@@ -117,7 +117,7 @@ for _, strategy in helpers.each_strategy() do
         local header_location   = assert.response(r).has.header("Location")
         local header_set_cookie = assert.response(r).has.header("Set-Cookie")
         assert.equal("http://test1.com/index.html", header_location)
-        assert.matches("^edgetoken=data=roles=%[\"Admin\"%]&sub=leandro@carnei.ro&iss=test1.com&name=Leandro Carneiro&domain=carnei.ro~acl=/%*~exp=%d+~hmac=%w+;version=1;path=/;secure;Max%-Age=86395$", header_set_cookie)
+        assert.matches("^edgetoken=data=roles=%[\"Admin\"%]&sub=leandro@carnei.ro&iss=test1.com&name=Leandro Carneiro&domain=carnei.ro~acl=/%*~exp=%d+~hmac=%w+;version=1;path=/;secure;Max%-Age=86399$", header_set_cookie)
       end)
 
       it("token issued - name=edgetoken ttl=86400 httponly=true iss=test1.com redir=http://test1.com/index.html", function()
@@ -130,7 +130,7 @@ for _, strategy in helpers.each_strategy() do
         local header_location   = assert.response(r).has.header("Location")
         local header_set_cookie = assert.response(r).has.header("Set-Cookie")
         assert.equal("http://test1.com/index.html", header_location)
-        assert.matches("^edgetoken=data=roles=%[\"Admin\"%]&sub=leandro@carnei.ro&iss=test1.com&name=Leandro Carneiro&domain=carnei.ro~acl=/%*~exp=%d+~hmac=%w+;version=1;path=/;secure;Max%-Age=86395;httponly$", header_set_cookie)
+        assert.matches("^edgetoken=data=roles=%[\"Admin\"%]&sub=leandro@carnei.ro&iss=test1.com&name=Leandro Carneiro&domain=carnei.ro~acl=/%*~exp=%d+~hmac=%w+;version=1;path=/;secure;Max%-Age=86399;httponly$", header_set_cookie)
       end)
 
       it("token issued - name=tokenname ttl=3600 httponly=true iss=test2.com redir=http://test2.com/foobar", function()
@@ -143,7 +143,46 @@ for _, strategy in helpers.each_strategy() do
         local header_location   = assert.response(r).has.header("Location")
         local header_set_cookie = assert.response(r).has.header("Set-Cookie")
         assert.equal("http://test2.com/foobar", header_location)
-        assert.matches("^tokenname=data=roles=%[\"Admin\"%]&sub=leandro@carnei.ro&iss=test2.com&name=Leandro Carneiro&domain=carnei.ro~acl=/%*~exp=%d+~hmac=%w+;version=1;path=/;secure;Max%-Age=3595;httponly$", header_set_cookie)
+        assert.matches("^tokenname=data=roles=%[\"Admin\"%]&sub=leandro@carnei.ro&iss=test2.com&name=Leandro Carneiro&domain=carnei.ro~acl=/%*~exp=%d+~hmac=%w+;version=1;path=/;secure;Max%-Age=3599;httponly$", header_set_cookie)
+      end)
+
+      it("token issued v2 - full", function()
+        local r = client:get("/auth/edge/callback?code=9af3070e-df93-4748-b871-9c5b180474b7&state=eyJkIjoidjI7ZWRnZXRva2VuOzg2NDAwO3RydWU7dHJ1ZTtha2FtYWlfdG9rZW47LmJhci5jb207LztTdHJpY3Q7aHR0cDovL2Zvby5iYXIuY29tL2luZGV4Lmh0bWwiLCJ2IjoidjIiLCJlIjoiVUhaZTFEOU91S0hQbHpmQ1BxOVF6aVArSXduWkdLTXd0dEFod0hkdkxRZz0ifQ==", {
+          headers = {
+            host = "test1.com"
+          }
+        })
+        assert.response(r).has.status(302)
+        local header_location   = assert.response(r).has.header("Location")
+        local header_set_cookie = assert.response(r).has.header("Set-Cookie")
+        assert.equal("http://foo.bar.com/index.html", header_location)
+        assert.matches("^edgetoken=data=roles=%[\"Admin\"%]&sub=leandro@carnei.ro&iss=akamai_token&name=Leandro Carneiro&domain=carnei.ro~acl=/%*~exp=%d+~hmac=%w+;version=1;path=/;secure;Max%-Age=86399;httponly;Domain=.bar.com;SameSite=Strict$", header_set_cookie)
+      end)
+
+      it("token issued v2 - missing fields", function()
+        local r = client:get("/auth/edge/callback?code=9af3070e-df93-4748-b871-9c5b180474b7&state=eyJkIjoidjI7ZWRnZXRva2VuOzg2NDAwO3RydWU7dHJ1ZTtha2FtYWlfdG9rZW47Ozs7aHR0cDovL2Zvby5iYXIuY29tL2luZGV4Lmh0bWwiLCJ2IjoidjIiLCJlIjoiWkNqNmJjTTRuUHM2Y0szOWRWUWx5TXRXdVJwcHpoU0RvS1lLQndHQ2YzZz0ifQ==", {
+          headers = {
+            host = "test1.com"
+          }
+        })
+        assert.response(r).has.status(302)
+        local header_location   = assert.response(r).has.header("Location")
+        local header_set_cookie = assert.response(r).has.header("Set-Cookie")
+        assert.equal("http://foo.bar.com/index.html", header_location)
+        assert.matches("^edgetoken=data=roles=%[\"Admin\"%]&sub=leandro@carnei.ro&iss=akamai_token&name=Leandro Carneiro&domain=carnei.ro~acl=/%*~exp=%d+~hmac=%w+;version=1;path=/;secure;Max%-Age=86399;httponly$", header_set_cookie)
+      end)
+
+      it("token issued v2 - fully customized", function()
+        local r = client:get("/auth/edge/callback?code=9af3070e-df93-4748-b871-9c5b180474b7&state=eyJkIjoidjI7bXlfdG9rZW47NDMyMDA7ZmFsc2U7ZmFsc2U7YWthbWFpX3Rva2VuOy5iYXIuY29tOy9hcGk7TGF4O2h0dHA6Ly9mb28uYmFyLmNvbS9pbmRleC5odG1sIiwidiI6InYyIiwiZSI6Im1SVzZhMGR0WGhJalN1anM0dEpZRVhkTFVFaWhIVzN2UnpRSzQ1SjVJdjQ9In0=", {
+          headers = {
+            host = "test1.com"
+          }
+        })
+        assert.response(r).has.status(302)
+        local header_location   = assert.response(r).has.header("Location")
+        local header_set_cookie = assert.response(r).has.header("Set-Cookie")
+        assert.equal("http://foo.bar.com/index.html", header_location)
+        assert.matches("^my_token=data=roles=%[\"Admin\"%]&sub=leandro@carnei.ro&iss=akamai_token&name=Leandro Carneiro&domain=carnei.ro~acl=/%*~exp=%d+~hmac=%w+;version=1;path=/api;Max%-Age=43199;Domain=.bar.com;SameSite=Lax$", header_set_cookie)
       end)
 
     end)

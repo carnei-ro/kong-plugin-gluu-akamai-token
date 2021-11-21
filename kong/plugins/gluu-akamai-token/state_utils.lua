@@ -39,8 +39,26 @@ function _M:parse_state(state_version, state_string)
         ["issuer"]      = issuer,
         ["redirect"]    = redirect,
         ["cookie_name"] = cookie_name,
+        ["secure"]      = true,
       }, nil
-    end
+    end,
+    ["v2"] = function(state_string)
+      local version, cookie_name, ttl_str, http_only_str, secure_str, issuer, domain, path, same_site, redirect = state_string:match("([^;]*)%;([^;]*)%;([^;]*)%;([^;]*)%;([^;]*)%;([^;]*)%;([^;]*)%;([^;]*)%;([^;]*)%;(.*)")
+      if version ~= "v2" then
+        return nil, "State version does not match state at state string."
+      end
+      return {
+        ["ttl"]         = tonumber(ttl_str),
+        ["http_only"]   = (http_only_str == "true") and true or false,
+        ["domain"]      = domain,
+        ["path"]        = path,
+        ["secure"]      = (secure_str == "true") and true or false,
+        ["same_site"]   = same_site,
+        ["issuer"]      = issuer,
+        ["redirect"]    = redirect,
+        ["cookie_name"] = cookie_name,
+      }, nil
+    end,
   }
   if parser[state_version] == nil then
     return nil, "Parser for State version " .. state_version .. " not implemented yet."
